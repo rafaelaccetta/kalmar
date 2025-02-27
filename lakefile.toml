@@ -1,0 +1,10 @@
+name = "kalmar"
+version = "0.1.0"
+defaultTargets = ["kalmar"]
+
+[[lean_lib]]
+name = "Kalmar"
+
+[[lean_exe]]
+name = "kalmar"
+root = "Main"
