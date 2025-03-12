@@ -54,34 +54,10 @@ def provable (A : formula) : Prop := [] ⊢ A
 
 prefix:50 " ⊢ " => provable
 
-theorem entails_append_right : (Γ₁ ⊢ A) → (Γ₁ ++ Γ₂ ⊢ A) := by
-  intro h
+theorem entails_subset : (γ ⊢ A) → (γ ⊆ Γ) → (Γ ⊢ A) := by
+  intro h h'
   induction h with
-  | prem A AinG =>
-    apply entails.prem
-    apply List.mem_append.mpr
-    apply Or.intro_left
-    assumption
-  | ax1 A B => exact entails.ax1 A B
-  | ax2 A B C => exact entails.ax2 A B C
-  | ax3 A B => exact entails.ax3 A B
-  | ax4 A => exact entails.ax4 A
-  | ax5 A B => exact entails.ax5 A B
-  | ax6 A => exact entails.ax6 A
-  | ax7 B => exact entails.ax7 B
-  | ax8 A B => exact entails.ax8 A B
-  | ax9 A B => exact entails.ax9 A B
-  | mp A1 B h1 h2 h3 h4 =>
-    exact entails.mp _ _ h3 h4
-
-theorem entails_append_left : (Γ₂ ⊢ A) → (Γ₁ ++ Γ₂ ⊢ A) := by
-  intro h
-  induction h with
-  | prem A AinG =>
-    apply entails.prem
-    apply List.mem_append.mpr
-    apply Or.intro_right
-    assumption
+  | prem A AinG => exact entails.prem A (List.subset_def.mp h' AinG)
   | ax1 A B => exact entails.ax1 A B
   | ax2 A B C => exact entails.ax2 A B C
   | ax3 A B => exact entails.ax3 A B
@@ -190,10 +166,8 @@ theorem deduction {Γ : List formula} {A B : formula} :
     have h2 : ((A ⇒ B) :: Γ) ⊢ ((A ⇒ B) ⇒ (((~A) ⇒ B) ⇒ B)) := entails.ax9 A B
     apply entails.mp _ _ h1 h2
   | mp A1 _ h2 h3 =>
-    have h4 : [A] ++ Γ ⊢ A1 := entails_append_left h2
-    rw [List.singleton_append] at h4
-    have h5 : [A] ++ Γ ⊢ (A1 ⇒ A ⇒ B) := entails_append_left h3
-    rw [List.singleton_append] at h5
+    have h4 : A :: Γ ⊢ A1 := entails_subset h2 (List.subset_cons_self A Γ)
+    have h5 : A :: Γ ⊢ (A1 ⇒ A ⇒ B) := entails_subset h3 (List.subset_cons_self A Γ)
     apply entails.mp _ _ h1 (entails.mp _ _ h4 h5)
 
 def variables_in : formula → List formula
@@ -250,7 +224,7 @@ theorem lemma (v : truth_assignment) (A : formula) :
           entails.ax1 A2 A1
         have h6 : (List.map (aux v) (variables_in (A1 ⇒ A2)) ⊢ A2) := by
           simp [variables_in]
-          apply entails_append_left ih2
+          apply entails_subset ih2 (List.subset_append_right _ _)
         rw [h4]
         apply entails.mp _ _ h6 h5
       case false =>
@@ -265,10 +239,10 @@ theorem lemma (v : truth_assignment) (A : formula) :
           entails.ax8 A1 A2
         have h6 : List.map (aux v) (variables_in (A1 ⇒ A2)) ⊢ A1 := by
           simp [variables_in]
-          apply entails_append_right ih1
+          apply entails_subset ih1 (List.subset_append_left _ _)
         have h7 : List.map (aux v) (variables_in (A1 ⇒ A2)) ⊢ ~ A2 := by
           simp [variables_in]
-          apply entails_append_left ih2
+          apply entails_subset ih2 (List.subset_append_right _ _)
         apply entails.mp _ _ h7 (entails.mp _ _ h6 h5)
     case false =>
       have h1 : aux v A1 = ~ A1 := by simp [aux, va1]
@@ -278,7 +252,7 @@ theorem lemma (v : truth_assignment) (A : formula) :
       rw [h3]
       have h4 : List.map (aux v) (variables_in (A1 ⇒ A2)) ⊢ ~ A1 := by
         simp [variables_in]
-        apply entails_append_right ih1
+        apply entails_subset ih1 (List.subset_append_left _ _)
       have h5 : List.map (aux v) (variables_in (A1 ⇒ A2)) ⊢ ((~ A1) ⇒ (A1 ⇒ A2)) :=
         entails.ax3 A1 A2
       apply entails.mp _ _ h4 h5
