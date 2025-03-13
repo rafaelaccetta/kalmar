@@ -1,6 +1,9 @@
 -- This module serves as the root of the `Kalmar` library.
 -- Import modules here that should be built as part of the library.
 import Kalmar.Basic
+import Mathlib.Data.Set.Defs
+import Mathlib.Data.Set.Basic
+import Mathlib.Data.Set.Insert
 
 
 abbrev var : Type := Nat
@@ -35,7 +38,7 @@ def tautology (A : formula) : Prop :=
 
 prefix:50 " ⊨ " => tautology
 
-inductive entails (Γ : List formula) : formula → Prop where
+inductive entails (Γ : Set formula) : formula → Prop where
 | prem : ∀ (A : formula),     A ∈ Γ → entails Γ A
 | ax1 : ∀ (A B : formula),   entails Γ (A ⇒ (B ⇒ A))
 | ax2 : ∀ (A B C : formula), entails Γ ((A ⇒ (B ⇒ C)) ⇒ ((A ⇒ B) ⇒ (A ⇒ C)))
@@ -50,14 +53,14 @@ inductive entails (Γ : List formula) : formula → Prop where
 
 infix:50 " ⊢ " => entails
 
-def provable (A : formula) : Prop := [] ⊢ A
+def provable (A : formula) : Prop := ∅ ⊢ A
 
 prefix:50 " ⊢ " => provable
 
 theorem entails_subset : (γ ⊢ A) → (γ ⊆ Γ) → (Γ ⊢ A) := by
   intro h h'
   induction h with
-  | prem A AinG => exact entails.prem A (List.subset_def.mp h' AinG)
+  | prem A Aing => exact entails.prem A (Set.mem_of_subset_of_mem h' Aing)
   | ax1 A B => exact entails.ax1 A B
   | ax2 A B C => exact entails.ax2 A B C
   | ax3 A B => exact entails.ax3 A B
@@ -70,13 +73,14 @@ theorem entails_subset : (γ ⊢ A) → (γ ⊆ Γ) → (Γ ⊢ A) := by
   | mp A1 B h1 h2 h3 h4 =>
     exact entails.mp _ _ h3 h4
 
-theorem deduction {Γ : List formula} {A B : formula} :
-  (A :: Γ) ⊢ B ↔ Γ ⊢ (A ⇒ B) := by
+theorem deduction {Γ : Set formula} {A B : formula} :
+  ({A} ∪ Γ) ⊢ B ↔ Γ ⊢ (A ⇒ B) := by
   constructor
   intro h
   induction h with
   | prem A1 h1 =>
-    cases List.mem_cons.mp h1
+
+    cases (Set.mem_union A1 {A} Γ).mp h1
     case inl h2 =>
       rw [h2]
       apply entails.ax6 A
@@ -135,52 +139,70 @@ theorem deduction {Γ : List formula} {A B : formula} :
     apply entails.mp _ _ h3 (entails.mp _ _ h4 h5)
 
   intro h
-  have h1 : (A :: Γ) ⊢ A := entails.prem A (List.mem_cons_self A Γ)
+  have h1 : ({A} ∪ Γ) ⊢ A := entails.prem A ((Set.mem_union A {A} Γ).mpr (Or.inl (Set.mem_singleton A)))
   cases h with
   | prem _ h2 =>
-    have h3 : (A :: Γ) ⊢ (A ⇒ B) := entails.prem (A ⇒ B) (List.mem_cons.mpr (Or.inr h2))
+    have h3 : ({A} ∪ Γ) ⊢ (A ⇒ B) := entails.prem (A ⇒ B) ((Set.mem_union (A ⇒ B) {A} Γ).mpr (Or.inr h2))
     apply entails.mp _ _ h1 h3
   | ax1 _ B =>
-    have h2 : (A :: Γ) ⊢ (A ⇒ (B ⇒ A)) := entails.ax1 A B
+    have h2 : ({A} ∪ Γ) ⊢ (A ⇒ (B ⇒ A)) := entails.ax1 A B
     apply entails.mp _ _ h1 h2
   | ax2 A B C =>
-    have h2 : ((A ⇒ B ⇒ C) :: Γ) ⊢ ((A ⇒ (B ⇒ C)) ⇒ ((A ⇒ B) ⇒ (A ⇒ C))) := entails.ax2 A B C
+    have h2 : ({(A ⇒ B ⇒ C)} ∪ Γ) ⊢ ((A ⇒ (B ⇒ C)) ⇒ ((A ⇒ B) ⇒ (A ⇒ C))) := entails.ax2 A B C
     apply entails.mp _ _ h1 h2
   | ax3 A B =>
-    have h2 : (( ~ A) :: Γ) ⊢ ((~A) ⇒ (A ⇒ B)) := entails.ax3 A B
+    have h2 : ({( ~ A)} ∪ Γ) ⊢ ((~A) ⇒ (A ⇒ B)) := entails.ax3 A B
     apply entails.mp _ _ h1 h2
   | ax4 _ =>
-    have h2 : ( ~ B ⇒ B) :: Γ ⊢ (( ~ B ⇒ B) ⇒ B) := entails.ax4 B
+    have h2 : ({( ~ B ⇒ B)} ∪ Γ) ⊢ (( ~ B ⇒ B) ⇒ B) := entails.ax4 B
     apply entails.mp _ _ h1 h2
   | ax5 A B =>
-    have h2 : ( ~ B ⇒ ~ A) :: Γ ⊢ (((~B) ⇒ (~A)) ⇒ (((~B) ⇒ A) ⇒ B)) := entails.ax5 A B
+    have h2 : ({( ~ B ⇒ ~ A)} ∪ Γ) ⊢ (((~B) ⇒ (~A)) ⇒ (((~B) ⇒ A) ⇒ B)) := entails.ax5 A B
     apply entails.mp _ _ h1 h2
   | ax6 A => apply h1
   | ax7 _ =>
-    have h2 : A :: Γ ⊢ (A ⇒ (~ ~ A)) := entails.ax7 A
+    have h2 : ({A} ∪ Γ) ⊢ (A ⇒ (~ ~ A)) := entails.ax7 A
     apply entails.mp _ _ h1 h2
   | ax8 A B =>
-    have h2 : ( A :: Γ) ⊢ (A ⇒ ((~B) ⇒ (~(A ⇒ B)))) := entails.ax8 A B
+    have h2 : ({A} ∪ Γ) ⊢ (A ⇒ ((~B) ⇒ (~(A ⇒ B)))) := entails.ax8 A B
     apply entails.mp _ _ h1 h2
   | ax9 A B =>
-    have h2 : ((A ⇒ B) :: Γ) ⊢ ((A ⇒ B) ⇒ (((~A) ⇒ B) ⇒ B)) := entails.ax9 A B
+    have h2 : ({(A ⇒ B)} ∪ Γ) ⊢ ((A ⇒ B) ⇒ (((~A) ⇒ B) ⇒ B)) := entails.ax9 A B
     apply entails.mp _ _ h1 h2
   | mp A1 _ h2 h3 =>
-    have h4 : A :: Γ ⊢ A1 := entails_subset h2 (List.subset_cons_self A Γ)
-    have h5 : A :: Γ ⊢ (A1 ⇒ A ⇒ B) := entails_subset h3 (List.subset_cons_self A Γ)
+    have h4 : ({A} ∪ Γ) ⊢ A1 := entails_subset h2 (Set.subset_union_right)
+    have h5 : ({A} ∪ Γ) ⊢ (A1 ⇒ A ⇒ B) := entails_subset h3 (Set.subset_union_right)
     apply entails.mp _ _ h1 (entails.mp _ _ h4 h5)
 
-def variables_in : formula → List formula
-| .atom a => [.atom a]
+theorem soundness {A : formula} : ⊢ A → ⊨ A := by
+  rw [provable, tautology]
+  intro h v
+  rw [satisfies]
+  induction h with
+  | prem => contradiction
+  | ax1 A1 B1 =>    simp [extension]; cases ((v* ) A1) <;> simp
+  | ax2 A1 B1 C1 => simp [extension]; cases ((v* ) A1) <;> cases ((v* ) B1) <;> simp
+  | ax3 A1 B1 =>    simp [extension]; cases ((v* ) A1) <;> simp
+  | ax4 A1 =>       simp [extension]; cases ((v* ) A1) <;> simp
+  | ax5 A1 B1 =>    simp [extension]; cases ((v* ) A1) <;> cases ((v* ) B1) <;> simp
+  | ax6 A1 =>       simp [extension]
+  | ax7 B1 =>       simp [extension]
+  | ax8 A1 B1 =>    simp [extension]; cases ((v* ) A1) <;> cases ((v* ) B1) <;> simp
+  | ax9 A1 B1 =>    simp [extension]; cases ((v* ) A1) <;> cases ((v* ) B1) <;> simp
+  | mp A1 B1 h1 h2 h3 h4 =>
+    rw [← h4]; simp [extension, h3]; cases (v* ) B1 <;> simp
+
+def variables_in : formula → Set formula
+| .atom a => {.atom a}
 | .neg A1 => variables_in A1
-| .impl A1 A2 => variables_in A1 ++ variables_in A2
+| .impl A1 A2 => variables_in A1 ∪ variables_in A2
 
 def aux (v : truth_assignment) (A : formula) : formula :=
   match (v*) A with
   | true => A
   | false => A.neg
 
-theorem lemma (v : truth_assignment) (A : formula) :
+lemma klemma (v : truth_assignment) (A : formula) :
   (variables_in A).map (aux v) ⊢ aux v A := by
   induction A with
   | atom a =>
@@ -257,29 +279,12 @@ theorem lemma (v : truth_assignment) (A : formula) :
         entails.ax3 A1 A2
       apply entails.mp _ _ h4 h5
 
-theorem soundness {A : formula} : ⊢ A → ⊨ A := by
-  rw [provable, tautology]
-  intro h v
-  rw [satisfies]
-  induction h with
-  | prem => contradiction
-  | ax1 A1 B1 =>    simp [extension]; cases ((v* ) A1) <;> simp
-  | ax2 A1 B1 C1 => simp [extension]; cases ((v* ) A1) <;> cases ((v* ) B1) <;> simp
-  | ax3 A1 B1 =>    simp [extension]; cases ((v* ) A1) <;> simp
-  | ax4 A1 =>       simp [extension]; cases ((v* ) A1) <;> simp
-  | ax5 A1 B1 =>    simp [extension]; cases ((v* ) A1) <;> cases ((v* ) B1) <;> simp
-  | ax6 A1 =>       simp [extension]
-  | ax7 B1 =>       simp [extension]
-  | ax8 A1 B1 =>    simp [extension]; cases ((v* ) A1) <;> cases ((v* ) B1) <;> simp
-  | ax9 A1 B1 =>    simp [extension]; cases ((v* ) A1) <;> cases ((v* ) B1) <;> simp
-  | mp A1 B1 h1 h2 h3 h4 =>
-    rw [← h4]; simp [extension, h3]; cases (v* ) B1 <;> simp
-
 theorem completeness {A : formula} : ⊨ A ↔ ⊢ A := by
   constructor
 
   dsimp [tautology, provable]
   intro h
+
 
   sorry
 
