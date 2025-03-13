@@ -4,6 +4,7 @@ import Kalmar.Basic
 import Mathlib.Data.Set.Defs
 import Mathlib.Data.Set.Basic
 import Mathlib.Data.Set.Insert
+import Mathlib.Data.List.Nodup
 
 
 abbrev var : Type := Nat
@@ -192,10 +193,17 @@ theorem soundness {A : formula} : ⊢ A → ⊨ A := by
   | mp A1 B1 h1 h2 h3 h4 =>
     rw [← h4]; simp [extension, h3]; cases (v* ) B1 <;> simp
 
-def variables_in : formula → Set formula
-| .atom a => {.atom a}
+def variables_in : formula → List var
+| .atom a => [a]
 | .neg A1 => variables_in A1
 | .impl A1 A2 => variables_in A1 ∪ variables_in A2
+
+theorem variables_in_nodup (A : formula) : (variables_in A).Nodup := by
+  induction A <;> rw [variables_in]
+  exact List.nodup_singleton _
+  assumption
+  apply List.Nodup.union; assumption
+
 
 def aux (v : truth_assignment) (A : formula) : formula :=
   match (v*) A with
