@@ -5,6 +5,7 @@ import Mathlib.Data.Set.Defs
 import Mathlib.Data.Set.Basic
 import Mathlib.Data.Set.Insert
 import Mathlib.Data.List.Nodup
+import Batteries.Data.List.Lemmas
 
 
 abbrev var : Type := Nat
@@ -204,42 +205,63 @@ theorem variables_in_nodup (A : formula) : (variables_in A).Nodup := by
   assumption
   apply List.Nodup.union; assumption
 
+def set_from (l : List α) : Set α := List.foldr Set.insert ∅ l
 
 def aux (v : truth_assignment) (A : formula) : formula :=
   match (v*) A with
   | true => A
   | false => A.neg
 
-lemma klemma (v : truth_assignment) (A : formula) :
-  (variables_in A).map (aux v) ⊢ aux v A := by
+theorem klemma (A : formula) (v : truth_assignment) :
+  set_from (List.map (aux v ∘ formula.atom) (variables_in A)) ⊢ aux v A := by
   induction A with
   | atom a =>
-    simp [variables_in]
-    rw [deduction]
+    simp [variables_in, set_from]
+    simp [Set.insert]
+    rw [← Set.union_empty {aux v (formula.atom a)}, deduction]
     apply entails.ax6
   | neg A1 ih =>
     simp [variables_in]
-    cases va1 : (v*) A1
-    case true =>
+    cases va1 : (v*) A1 with
+    | true =>
       have h1 : aux v A1 = A1 := by simp [aux, va1]
-      have h2 : aux v ( ~ A1) = (~(~A1)) := by
-        simp [aux]
-        have h3 : (v* ) ( ~ A1) = false := by simp [extension, va1]
-        simp [h3]
-      have h3 : List.map (aux v) (variables_in A1) ⊢ (A1 ⇒ (~(~A1))) :=
+      have h2 : aux v (~ A1) = (~(~A1)) := by simp [aux, extension, va1]
+      have h3 : set_from (List.map (aux v ∘ formula.atom) (variables_in A1)) ⊢ (A1 ⇒ (~(~A1))) :=
         entails.ax7 A1
       rw [h1] at ih
       rw [h2]
       apply entails.mp _ _ ih h3
-    case false =>
-      have h1 : aux v A1 = ~ A1 := by simp [aux, va1]
-      have h2 : aux v ( ~ A1) = ( ~ A1) := by
-        simp [aux]
-        have h3 : (v* ) ( ~ A1) = true := by simp [extension, va1]
-        simp [h3]
+    | false =>
+      have h1 : aux v A1 = (~A1) := by simp [aux, va1]
+      have h2 : aux v (~ A1) = (~A1) := by simp [aux, extension, va1]
       rw [h1] at ih
       rw [h2]
       assumption
+  | impl A1 A2 ih1 ih2 =>
+    cases va1 : (v*) A1 with
+    | true =>
+      have h1 : aux v A1 = A1 := by simp [aux, va1]
+      rw [h1] at ih1
+      cases va2 : (v*) A2 with
+      | true =>
+        have h2 : aux v A2 = A2 := by simp [aux, va2]
+        rw [h2] at ih2
+        have h3 : aux v (A1 ⇒ A2) = (A1 ⇒ A2) := by simp [aux, extension, va2]
+        rw [h3]
+        have h4 : set_from (List.map (aux v ∘ formula.atom) (variables_in (A1 ⇒ A2))) ⊢ (A2 ⇒ (A1 ⇒ A2)) :=
+          entails.ax1 A2 A1
+        have h5 : set_from (List.map (aux v ∘ formula.atom) (variables_in (A1 ⇒ A2))) ⊢ A2 := by
+          simp [variables_in]
+
+
+
+        sorry
+      | false => sorry
+    | false => sorry
+
+
+
+/-
   | impl A1 A2 ih1 ih2 =>
     cases va1 : (v*) A1
     case true =>
@@ -286,6 +308,7 @@ lemma klemma (v : truth_assignment) (A : formula) :
       have h5 : List.map (aux v) (variables_in (A1 ⇒ A2)) ⊢ ((~ A1) ⇒ (A1 ⇒ A2)) :=
         entails.ax3 A1 A2
       apply entails.mp _ _ h4 h5
+-/
 
 theorem completeness {A : formula} : ⊨ A ↔ ⊢ A := by
   constructor
