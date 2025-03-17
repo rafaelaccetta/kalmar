@@ -171,8 +171,8 @@ theorem deduction {Γ : List formula} {A B : formula} :
     have h5 : A :: Γ ⊢ (A1 ⇒ A ⇒ B) := entails_subset h3 (List.subset_cons_self A Γ)
     apply entails.mp _ _ h1 (entails.mp _ _ h4 h5)
 
-def variables_in : formula → List formula
-| .atom a => [.atom a]
+def variables_in : formula → List var
+| .atom a => [a]
 | .neg A1 => variables_in A1
 | .impl A1 A2 => variables_in A1 ++ variables_in A2
 
@@ -182,7 +182,7 @@ def aux (v : truth_assignment) (A : formula) : formula :=
   | false => A.neg
 
 theorem lemma (A : formula) (v : truth_assignment) :
-  (variables_in A).map (aux v) ⊢ aux v A := by
+  ((variables_in A).map formula.atom).map (aux v) ⊢ aux v A := by
   induction A with
   | atom a =>
     simp [variables_in]
@@ -197,10 +197,11 @@ theorem lemma (A : formula) (v : truth_assignment) :
         simp [aux]
         have h3 : (v* ) ( ~ A1) = false := by simp [extension, va1]
         simp [h3]
-      have h3 : List.map (aux v) (variables_in A1) ⊢ (A1 ⇒ (~(~A1))) :=
+      have h3 : List.map (aux v) ((variables_in A1).map formula.atom) ⊢ (A1 ⇒ (~(~A1))) :=
         entails.ax7 A1
       rw [h1] at ih
       rw [h2]
+      simp at ih h3
       apply entails.mp _ _ ih h3
     case false =>
       have h1 : aux v A1 = ~ A1 := by simp [aux, va1]
@@ -210,6 +211,7 @@ theorem lemma (A : formula) (v : truth_assignment) :
         simp [h3]
       rw [h1] at ih
       rw [h2]
+      simp at ih
       assumption
   | impl A1 A2 ih1 ih2 =>
     cases va1 : (v*) A1
@@ -221,10 +223,11 @@ theorem lemma (A : formula) (v : truth_assignment) :
         have h3 : (v*) (A1 ⇒ A2) = true := by simp [extension, va1, va2]
         have h4 : aux v (A1 ⇒ A2) = (A1 ⇒ A2) := by simp [aux, h3]
         rw [h2] at ih2
-        have h5 : List.map (aux v) (variables_in (A1 ⇒ A2)) ⊢ (A2 ⇒ (A1 ⇒ A2)) :=
+        have h5 : List.map (aux v) ((variables_in (A1 ⇒ A2)).map formula.atom) ⊢ (A2 ⇒ (A1 ⇒ A2)) :=
           entails.ax1 A2 A1
-        have h6 : (List.map (aux v) (variables_in (A1 ⇒ A2)) ⊢ A2) := by
+        have h6 : (List.map (aux v) ((variables_in (A1 ⇒ A2)).map formula.atom) ⊢ A2) := by
           simp [variables_in]
+          simp at ih2
           apply entails_subset ih2 (List.subset_append_right _ _)
         rw [h4]
         apply entails.mp _ _ h6 h5
@@ -236,13 +239,15 @@ theorem lemma (A : formula) (v : truth_assignment) :
         rw [h1] at ih1
         rw [h2] at ih2
         rw [h4]
-        have h5 : List.map (aux v) (variables_in (A1 ⇒ A2)) ⊢ (A1 ⇒ ((~A2) ⇒ (~(A1 ⇒ A2)))) :=
+        have h5 : List.map (aux v) ((variables_in (A1 ⇒ A2)).map formula.atom) ⊢ (A1 ⇒ ((~A2) ⇒ (~(A1 ⇒ A2)))) :=
           entails.ax8 A1 A2
-        have h6 : List.map (aux v) (variables_in (A1 ⇒ A2)) ⊢ A1 := by
+        have h6 : List.map (aux v) ((variables_in (A1 ⇒ A2)).map formula.atom) ⊢ A1 := by
           simp [variables_in]
+          simp at ih1
           apply entails_subset ih1 (List.subset_append_left _ _)
-        have h7 : List.map (aux v) (variables_in (A1 ⇒ A2)) ⊢ ~ A2 := by
+        have h7 : List.map (aux v) ((variables_in (A1 ⇒ A2)).map formula.atom) ⊢ ~ A2 := by
           simp [variables_in]
+          simp at ih2
           apply entails_subset ih2 (List.subset_append_right _ _)
         apply entails.mp _ _ h7 (entails.mp _ _ h6 h5)
     case false =>
@@ -251,10 +256,11 @@ theorem lemma (A : formula) (v : truth_assignment) :
       have h3 : aux v (A1 ⇒ A2) = (A1 ⇒ A2) := by simp [aux, h2]
       rw [h1] at ih1
       rw [h3]
-      have h4 : List.map (aux v) (variables_in (A1 ⇒ A2)) ⊢ ~ A1 := by
+      have h4 : List.map (aux v) ((variables_in (A1 ⇒ A2)).map formula.atom) ⊢ ~ A1 := by
         simp [variables_in]
+        simp at ih1
         apply entails_subset ih1 (List.subset_append_left _ _)
-      have h5 : List.map (aux v) (variables_in (A1 ⇒ A2)) ⊢ ((~ A1) ⇒ (A1 ⇒ A2)) :=
+      have h5 : List.map (aux v) ((variables_in (A1 ⇒ A2)).map formula.atom) ⊢ ((~ A1) ⇒ (A1 ⇒ A2)) :=
         entails.ax3 A1 A2
       apply entails.mp _ _ h4 h5
 
@@ -276,21 +282,19 @@ theorem soundness {A : formula} : ⊢ A → ⊨ A := by
   | mp A1 B1 h1 h2 h3 h4 =>
     rw [← h4]; simp [extension, h3]; cases (v* ) B1 <;> simp
 
-noncomputable def neg_if (v : truth_assignment) (A B : formula) : formula :=
-  if (B = A) then
-    match (v*) B with
-    | true => B.neg
-    | false => B
-  else aux v B
+noncomputable def true_if (a : var) (v : truth_assignment) (b : var) : Bool :=
+  if (b = a) then true else v b
+
+noncomputable def false_if (a : var) (v : truth_assignment) (b : var) : Bool :=
+  if (b = a) then false else v b
 
 theorem completeness {A : formula} : ⊨ A ↔ ⊢ A := by
   constructor
 
   dsimp [tautology, provable]
   intro ta
-  have l := lemma A
   have : ∀ (v : truth_assignment),
-    (List.map (aux v) (variables_in A) ⊢ A) → ⊢ A := by
+    (List.map (aux v) ((variables_in A).map formula.atom) ⊢ A) → ⊢ A := by
 
     induction variables_in A with
     | nil =>
@@ -299,28 +303,19 @@ theorem completeness {A : formula} : ⊨ A ↔ ⊢ A := by
       assumption
     | cons head tail ih =>
       intro v h
-      simp at h
       apply ih v
-      generalize hh : head =
-
-
-
-
-
-
-
-
-
-
-
-
-
+      simp only [List.map] at h
+      have ht : List.map (aux v) (List.map formula.atom tail) ⊢ ((formula.atom head) ⇒ A) :=
+        sorry
+      have hf : List.map (aux v) (List.map formula.atom tail) ⊢ ((~(formula.atom head)) ⇒ A) :=
+        sorry
+      have hax9 := @entails.ax9 (List.map (aux v) (List.map formula.atom tail)) (formula.atom head) A
+      apply entails.mp _ _ hf (entails.mp _ _ ht hax9)
 
   apply this (fun _ => true)
-  have l' := l (fun _ => true)
-  have ta' := ta (fun _ => true)
-  dsimp [satisfies] at ta'
-  simp [aux, ta'] at l'
-  exact l'
+  have l := lemma A (fun _ => true)
+  simp [satisfies] at ta
+  simp only [aux, ta (fun _ => true)] at l
+  exact l
 
   exact soundness
