@@ -2,6 +2,7 @@
 -- Import modules here that should be built as part of the library.
 import Kalmar.Basic
 
+open Classical
 
 abbrev var : Type := Nat
 
@@ -275,28 +276,39 @@ theorem soundness {A : formula} : ⊢ A → ⊨ A := by
   | mp A1 B1 h1 h2 h3 h4 =>
     rw [← h4]; simp [extension, h3]; cases (v* ) B1 <;> simp
 
+noncomputable def neg_if (v : truth_assignment) (A B : formula) : formula :=
+  if (B = A) then
+    match (v*) B with
+    | true => B.neg
+    | false => B
+  else aux v B
+
 theorem completeness {A : formula} : ⊨ A ↔ ⊢ A := by
   constructor
 
   dsimp [tautology, provable]
   intro ta
-  generalize hva : variables_in A = va
   have l := lemma A
   have : ∀ (v : truth_assignment),
     (List.map (aux v) (variables_in A) ⊢ A) → ⊢ A := by
-    rw [hva]
-    induction va with
+
+    induction variables_in A with
     | nil =>
       intro v h
-      have tav := ta v
-      rw [satisfies] at tav
-      have lv := l v
-      simp [hva, aux, tav] at lv
       simp at h
       assumption
     | cons head tail ih =>
       intro v h
-      sorry
+      simp at h
+      apply ih v
+      generalize hh : head =
+
+
+
+
+
+
+
 
 
 
