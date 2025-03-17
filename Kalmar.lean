@@ -180,7 +180,7 @@ def aux (v : truth_assignment) (A : formula) : formula :=
   | true => A
   | false => A.neg
 
-theorem lemma (v : truth_assignment) (A : formula) :
+theorem lemma (A : formula) (v : truth_assignment) :
   (variables_in A).map (aux v) ⊢ aux v A := by
   induction A with
   | atom a =>
@@ -279,8 +279,36 @@ theorem completeness {A : formula} : ⊨ A ↔ ⊢ A := by
   constructor
 
   dsimp [tautology, provable]
-  intro h
+  intro ta
+  generalize hva : variables_in A = va
+  have l := lemma A
+  have : ∀ (v : truth_assignment),
+    (List.map (aux v) (variables_in A) ⊢ A) → ⊢ A := by
+    rw [hva]
+    induction va with
+    | nil =>
+      intro v h
+      have tav := ta v
+      rw [satisfies] at tav
+      have lv := l v
+      simp [hva, aux, tav] at lv
+      simp at h
+      assumption
+    | cons head tail ih =>
+      intro v h
+      sorry
 
-  sorry
+
+
+
+
+
+
+  apply this (fun _ => true)
+  have l' := l (fun _ => true)
+  have ta' := ta (fun _ => true)
+  dsimp [satisfies] at ta'
+  simp [aux, ta'] at l'
+  exact l'
 
   exact soundness
