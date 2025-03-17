@@ -1,6 +1,10 @@
 -- This module serves as the root of the `Kalmar` library.
 -- Import modules here that should be built as part of the library.
 import Kalmar.Basic
+import Batteries.Data.List.Basic
+import Mathlib.Data.List.Lattice
+import Mathlib.Data.List.Nodup
+import Init.Data.List.Sublist
 
 open Classical
 
@@ -174,14 +178,23 @@ theorem deduction {Γ : List formula} {A B : formula} :
 def variables_in : formula → List var
 | .atom a => [a]
 | .neg A1 => variables_in A1
-| .impl A1 A2 => variables_in A1 ++ variables_in A2
+| .impl A1 A2 => (variables_in A1) ∪ (variables_in A2)
+
+theorem variables_in_nodup (A : formula) : (variables_in A).Nodup := by
+  induction A with
+  | atom a => simp [variables_in]
+  | neg A1 ih => simp [variables_in]; exact ih
+  | impl A1 A2 ih1 ih2 =>
+    simp [variables_in]
+    apply List.Nodup.union
+    exact ih2
 
 def aux (v : truth_assignment) (A : formula) : formula :=
   match (v*) A with
   | true => A
   | false => A.neg
 
-theorem lemma (A : formula) (v : truth_assignment) :
+theorem klemma (A : formula) (v : truth_assignment) :
   ((variables_in A).map formula.atom).map (aux v) ⊢ aux v A := by
   induction A with
   | atom a =>
@@ -228,7 +241,12 @@ theorem lemma (A : formula) (v : truth_assignment) :
         have h6 : (List.map (aux v) ((variables_in (A1 ⇒ A2)).map formula.atom) ⊢ A2) := by
           simp [variables_in]
           simp at ih2
-          apply entails_subset ih2 (List.subset_append_right _ _)
+          apply entails_subset ih2
+          apply List.map_subset
+          rw [List.subset_def]
+          intro a h
+          apply List.mem_union_right
+          assumption
         rw [h4]
         apply entails.mp _ _ h6 h5
       case false =>
@@ -244,11 +262,21 @@ theorem lemma (A : formula) (v : truth_assignment) :
         have h6 : List.map (aux v) ((variables_in (A1 ⇒ A2)).map formula.atom) ⊢ A1 := by
           simp [variables_in]
           simp at ih1
-          apply entails_subset ih1 (List.subset_append_left _ _)
+          apply entails_subset ih1
+          apply List.map_subset
+          rw [List.subset_def]
+          intro a h
+          apply List.mem_union_left
+          assumption
         have h7 : List.map (aux v) ((variables_in (A1 ⇒ A2)).map formula.atom) ⊢ ~ A2 := by
           simp [variables_in]
           simp at ih2
-          apply entails_subset ih2 (List.subset_append_right _ _)
+          apply entails_subset ih2
+          apply List.map_subset
+          rw [List.subset_def]
+          intro a h
+          apply List.mem_union_right
+          assumption
         apply entails.mp _ _ h7 (entails.mp _ _ h6 h5)
     case false =>
       have h1 : aux v A1 = ~ A1 := by simp [aux, va1]
@@ -259,7 +287,12 @@ theorem lemma (A : formula) (v : truth_assignment) :
       have h4 : List.map (aux v) ((variables_in (A1 ⇒ A2)).map formula.atom) ⊢ ~ A1 := by
         simp [variables_in]
         simp at ih1
-        apply entails_subset ih1 (List.subset_append_left _ _)
+        apply entails_subset ih1
+        apply List.map_subset
+        rw [List.subset_def]
+        intro a h
+        apply List.mem_union_left
+        assumption
       have h5 : List.map (aux v) ((variables_in (A1 ⇒ A2)).map formula.atom) ⊢ ((~ A1) ⇒ (A1 ⇒ A2)) :=
         entails.ax3 A1 A2
       apply entails.mp _ _ h4 h5
@@ -313,7 +346,7 @@ theorem completeness {A : formula} : ⊨ A ↔ ⊢ A := by
       apply entails.mp _ _ hf (entails.mp _ _ ht hax9)
 
   apply this (fun _ => true)
-  have l := lemma A (fun _ => true)
+  have l := klemma A (fun _ => true)
   simp [satisfies] at ta
   simp only [aux, ta (fun _ => true)] at l
   exact l
