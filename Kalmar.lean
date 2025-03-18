@@ -315,10 +315,10 @@ theorem soundness {A : formula} : ⊢ A → ⊨ A := by
   | mp A1 B1 h1 h2 h3 h4 =>
     rw [← h4]; simp [extension, h3]; cases (v* ) B1 <;> simp
 
-noncomputable def true_if (a : var) (v : truth_assignment) (b : var) : Bool :=
+def true_if (a : var) (v : truth_assignment) (b : var) : Bool :=
   if (b = a) then true else v b
 
-noncomputable def false_if (a : var) (v : truth_assignment) (b : var) : Bool :=
+def false_if (a : var) (v : truth_assignment) (b : var) : Bool :=
   if (b = a) then false else v b
 
 theorem completeness {A : formula} : ⊨ A ↔ ⊢ A := by
@@ -328,20 +328,63 @@ theorem completeness {A : formula} : ⊨ A ↔ ⊢ A := by
   intro ta
   have : ∀ (v : truth_assignment),
     (List.map (aux v) ((variables_in A).map formula.atom) ⊢ A) → ⊢ A := by
+    intro v
+    have nd := variables_in_nodup A
+    revert nd
 
     induction variables_in A with
     | nil =>
-      intro v h
+      intro nd h
       simp at h
       assumption
     | cons head tail ih =>
-      intro v h
-      apply ih v
+
+      have va : variables_in A = head :: tail := sorry
+
+      intro nd h
+      apply ih (List.Nodup.of_cons nd)
       simp only [List.map] at h
-      have ht : List.map (aux v) (List.map formula.atom tail) ⊢ ((formula.atom head) ⇒ A) :=
-        sorry
-      have hf : List.map (aux v) (List.map formula.atom tail) ⊢ ((~(formula.atom head)) ⇒ A) :=
-        sorry
+      have hnit := List.Nodup.not_mem nd
+      rw [Not] at hnit
+
+      have htit : List.map (aux (true_if head v) ∘ formula.atom) tail = List.map (aux v) (List.map formula.atom tail) := by
+        simp
+        intro a aint
+        cases hah : (a == head) <;> simp at hah
+        simp [aux, extension, true_if, hah]
+        rw [hah] at aint
+        contradiction
+
+      have hfit : List.map (aux (false_if head v) ∘ formula.atom) tail = List.map (aux v) (List.map formula.atom tail) := by
+        simp
+        intro a aint
+        cases hah : (a == head) <;> simp at hah
+        simp [aux, extension, false_if, hah]
+        rw [hah] at aint
+        contradiction
+
+      have ht : List.map (aux v) (List.map formula.atom tail) ⊢ ((formula.atom head) ⇒ A) := by
+        have lat := klemma A (true_if head v)
+        rw [va] at lat --!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        simp at lat
+        rw [htit, deduction] at lat
+        dsimp [satisfies] at ta
+        have he : (aux (true_if head v) (formula.atom head) ⇒ aux (true_if head v) A) = ((formula.atom head) ⇒ A) := by
+          simp [aux, extension, true_if, ta (true_if head v)]
+        rw [he] at lat
+        assumption
+
+      have hf : List.map (aux v) (List.map formula.atom tail) ⊢ ((~(formula.atom head)) ⇒ A) := by
+        have lat := klemma A (false_if head v)
+        rw [va] at lat --!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        simp at lat
+        rw [hfit, deduction] at lat
+        dsimp [satisfies] at ta
+        have he : (aux (false_if head v) (formula.atom head) ⇒ aux (false_if head v) A) = (~(formula.atom head) ⇒ A) := by
+          simp [aux, extension, false_if, ta (false_if head v)]
+        rw [he] at lat
+        assumption
+
       have hax9 := @entails.ax9 (List.map (aux v) (List.map formula.atom tail)) (formula.atom head) A
       apply entails.mp _ _ hf (entails.mp _ _ ht hax9)
 
