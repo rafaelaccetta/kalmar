@@ -6,8 +6,6 @@ import Mathlib.Data.List.Lattice
 import Mathlib.Data.List.Nodup
 import Init.Data.List.Sublist
 
-open Classical
-
 abbrev var : Type := Nat
 
 inductive formula where
