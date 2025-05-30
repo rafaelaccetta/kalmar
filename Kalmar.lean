@@ -174,17 +174,14 @@ theorem deduction {Γ : List formula} {A B : formula} :
 
 def variables_in : formula → List var
 | .atom a => [a]
-| .neg A1 => variables_in A1
-| .impl A1 A2 => (variables_in A1) ∪ (variables_in A2)
+| ~ A1 => variables_in A1
+| A1 ⇒ A2 => (variables_in A1) ∪ (variables_in A2)
 
-theorem variables_in_nodup (A : formula) : (variables_in A).Nodup := by
-  induction A with
-  | atom a => simp [variables_in]
-  | neg A1 ih => simp [variables_in]; exact ih
-  | impl A1 A2 ih1 ih2 =>
-    simp [variables_in]
-    apply List.Nodup.union
-    exact ih2
+theorem variables_in_nodup : (A : formula) → (variables_in A).Nodup
+  | .atom a => by simp [variables_in]
+  | ~ A1 => variables_in_nodup A1
+  | A1 ⇒ A2 => List.Nodup.union (variables_in A1) (variables_in_nodup A2)
+
 
 def aux (v : truth_assignment) (A : formula) : formula :=
   if (v*) A then A else A.neg
