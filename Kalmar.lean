@@ -327,8 +327,9 @@ theorem lemma1 {A : formula} : ∀ (l : Finset var),
       rw [aux, extension, true_if]
       cases xa : x == a
       · simp; rfl
-      ·
-        grind
+      · rw [Nat.beq_eq_true_eq] at xa
+        rw[xa] at hx
+        contradiction
     have heqf : Finset.image (aux (false_if a v) ∘ formula.atom) as
       = Finset.image (aux v ∘ formula.atom) as := by
       simp [Finset.image]
@@ -339,8 +340,10 @@ theorem lemma1 {A : formula} : ∀ (l : Finset var),
       intro x hx
       rw [aux, extension, false_if]
       cases xa : x == a
-      simp; rfl
-      grind
+      · simp; rfl
+      · rw [Nat.beq_eq_true_eq] at xa
+        rw[xa] at hx
+        contradiction
     simp [aux, extension, true_if, heqt] at ht
     simp [aux, extension, false_if, heqf] at hf
     exact entails.mp (Finset.image (aux v ∘ formula.atom) as) _ A hf
